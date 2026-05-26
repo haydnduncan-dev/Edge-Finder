@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EV Betting Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0b0e11;
+      --bg2: #13171d;
+      --bg3: #1a1f28;
+      --border: rgba(255,255,255,0.07);
+      --border2: rgba(255,255,255,0.12);
+      --text: #e8eaf0;
+      --text2: #7a8394;
+      --text3: #4a5264;
+      --accent: #00e5a0;
+      --accent2: #00b87d;
+      --amber: #f5a623;
+      --red: #e24b4a;
+      --blue: #4a9eff;
+      --font-display: 'Syne', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+    }
+
+    html { background: var(--bg); color: var(--text); font-family: var(--font-display); }
+    body { min-height: 100vh; }
+
+    /* ── Header ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: rgba(11,14,17,0.92);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--text);
+    }
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .logo-icon svg { width: 16px; height: 16px; stroke: #0b0e11; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .live-pill {
+      display: flex; align-items: center; gap: 5px;
+      background: rgba(0,229,160,0.1);
+      border: 1px solid rgba(0,229,160,0.25);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.5px;
+    }
+    .live-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: blink 1.8s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .last-update { font-size: 12px; color: var(--text3); font-family: var(--font-mono); }
+
+    /* ── Main layout ── */
+    main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+
+    /* ── Metrics grid ── */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 2rem;
+    }
+    .metric {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .metric:hover { border-color: var(--border2); }
+    .metric::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), transparent);
+      opacity: 0.5;
+    }
+    .metric-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-bottom: 8px;
+    }
+    .metric-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1;
+      font-family: var(--font-mono);
+    }
+    .metric-value.accent { color: var(--accent); }
+    .metric-sub { font-size: 11px; color: var(--text3); margin-top: 4px; font-family: var(--font-mono); }
+
+    /* ── Filters ── */
+    .filter-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+    .filter-bar select,
+    .filter-bar input {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font-display);
+      font-size: 13px;
+      padding: 7px 12px;
+      outline: none;
+      transition: border-color 0.15s;
+      cursor: pointer;
+    }
+    .filter-bar select:hover,
+    .filter-bar input:hover { border-color: var(--border2); }
+    .filter-bar select:focus,
+    .filter-bar input:focus { border-color: var(--accent); }
+    .filter-bar option { background: var(--bg2); }
+    .filter-bar input[type=number] { width: 130px; }
+    .filter-bar input::placeholder { color: var(--text3); }
+
+    .refresh-btn {
+      margin-left: auto;
+      background: transparent;
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 7px 14px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      transition: all 0.15s;
+    }
+    .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .refresh-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .refresh-btn.spinning svg { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .count-chip {
+      font-size: 12px;
+      color: var(--text3);
+      font-family: var(--font-mono);
+      padding: 4px 10px;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+    }
+
+    /* ── Error ── */
+    .error-box {
+      background: rgba(226,75,74,0.08);
+      border: 1px solid rgba(226,75,74,0.3);
+      border-radius: 10px;
+      padding: 14px 18px;
+      color: #f09595;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      margin-bottom: 1.5rem;
+      display: none;
+      line-height: 1.6;
+    }
+    .error-box code {
+      background: rgba(0,0,0,0.3);
+      padding: 1px 5px;
+      border-radius: 3px;
+    }
+
+    /* ── Table ── */
+    .table-container {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    thead {
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      padding: 11px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--text3);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      transition: color 0.15s;
+    }
+    th:hover { color: var(--text2); }
+    th.sorted { color: var(--accent); }
+    th .sort-arrow { opacity: 0.5; margin-left: 3px; font-size: 10px; }
+    th.sorted .sort-arrow { opacity: 1; }
+
+    td {
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 0;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .col-rank   { width: 52px; }
+    .col-game   { width: 22%; }
+    .col-sport  { width: 12%; }
+    .col-book   { width: 10%; }
+    .col-market { width: 10%; }
+    .col-outcome{ width: 13%; }
+    .col-odds   { width: 7%; }
+    .col-edge   { width: 8%; }
+    .col-prob   { width: 9%; }
+    .col-time   { width: 10%; }
+
+    /* rank badge */
+    .rank-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+    .r1 { background: rgba(245,166,35,0.18); color: #f5a623; border: 1px solid rgba(245,166,35,0.35); }
+    .r2 { background: rgba(180,182,169,0.15); color: #b4b2a9; border: 1px solid rgba(180,182,169,0.3); }
+    .r3 { background: rgba(240,153,123,0.15); color: #f0997b; border: 1px solid rgba(240,153,123,0.3); }
+    .rn { background: var(--bg3); color: var(--text3); border: 1px solid var(--border); }
+
+    /* edge chip */
+    .edge-chip {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+    .edge-high { background: rgba(0,229,160,0.1); color: var(--accent); border: 1px solid rgba(0,229,160,0.25); }
+    .edge-mid  { background: rgba(245,166,35,0.1); color: var(--amber); border: 1px solid rgba(245,166,35,0.25); }
+    .edge-low  { background: rgba(74,158,255,0.1); color: var(--blue);  border: 1px solid rgba(74,158,255,0.25); }
+
+    /* sport badge */
+    .sport-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 500;
+      background: var(--bg3);
+      color: var(--text2);
+      border: 1px solid var(--border);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    /* odds */
+    .odds-pos { color: var(--accent); font-family: var(--font-mono); font-weight: 500; }
+    .odds-neg { color: var(--text2); font-family: var(--font-mono); }
+
+    /* prob */
+    .prob-val { color: var(--text2); font-family: var(--font-mono); font-size: 12px; }
+
+    /* game time */
+    .time-val { color: var(--text3); font-family: var(--font-mono); font-size: 11px; }
+
+    /* empty / loading */
+    .state-row td {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text3);
+      font-size: 14px;
+    }
+
+    /* ── Pagination ── */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 1rem;
+      font-size: 13px;
+      color: var(--text3);
+      font-family: var(--font-mono);
+    }
+    .pag-btn {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .pag-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .pag-btn:disabled { opacity: 0.3; cursor: default; }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 1.5rem 2rem;
+      margin-top: 3rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text3);
+      font-family: var(--font-mono);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      main { padding: 1rem; }
+      header { padding: 0 1rem; }
+      .col-time, .col-prob { display: none; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+    </div>
+    EdgeFinder
+  </div>
+  <div class="header-right">
+    <span class="last-update" id="last-update"></span>
+    <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+  </div>
+</header>
+
+<main>
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-label">Total Bets</div>
+      <div class="metric-value" id="m-total">—</div>
+      <div class="metric-sub">across all books</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Best Edge</div>
+      <div class="metric-value accent" id="m-best">—</div>
+      <div class="metric-sub">top opportunity</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Avg Edge</div>
+      <div class="metric-value" id="m-avg">—</div>
+      <div class="metric-sub">filtered results</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Sports</div>
+      <div class="metric-value" id="m-sports">—</div>
+      <div class="metric-sub">in results</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Sportsbooks</div>
+      <div class="metric-value" id="m-books">—</div>
+      <div class="metric-sub">represented</div>
+    </div>
+  </div>
+
+  <div class="error-box" id="err"></div>
+
+  <div class="filter-bar">
+    <select id="f-sport" onchange="applyFilters()"><option value="">All sports</option></select>
+    <select id="f-book"  onchange="applyFilters()"><option value="">All sportsbooks</option></select>
+    <select id="f-market" onchange="applyFilters()"><option value="">All markets</option></select>
+    <input type="number" id="f-edge" placeholder="Min edge %" step="0.1" min="0" oninput="applyFilters()" />
+    <span class="count-chip" id="count-chip"></span>
+    <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
+      <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Refresh
+    </button>
+  </div>
+
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th class="col-rank"    onclick="sortBy('rank')"              id="th-rank">    Rank    <span class="sort-arrow">↑</span></th>
+          <th class="col-game"    onclick="sortBy('game')"              id="th-game">    Game    <span class="sort-arrow"></span></th>
+          <th class="col-sport"   onclick="sortBy('sport_title')"       id="th-sport">   Sport   <span class="sort-arrow"></span></th>
+          <th class="col-book"    onclick="sortBy('sportsbook_key')"    id="th-book">    Book    <span class="sort-arrow"></span></th>
+          <th class="col-market"  onclick="sortBy('market_key')"        id="th-market">  Market  <span class="sort-arrow"></span></th>
+          <th class="col-outcome" onclick="sortBy('outcome_name')"      id="th-outcome"> Outcome <span class="sort-arrow"></span></th>
+          <th class="col-odds"    onclick="sortBy('odds_american')"     id="th-odds">    Odds    <span class="sort-arrow"></span></th>
+          <th class="col-edge"    onclick="sortBy('edge')"              id="th-edge">    Edge    <span class="sort-arrow"></span></th>
+          <th class="col-prob"    onclick="sortBy('no_vig_probability')" id="th-prob">   No-vig  <span class="sort-arrow"></span></th>
+          <th class="col-time"    onclick="sortBy('commence_time')"     id="th-time">    Starts  <span class="sort-arrow"></span></th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr class="state-row"><td colspan="10">Loading data…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="pagination">
+    <button class="pag-btn" id="prev-btn" onclick="prevPage()">← Prev</button>
+    <span id="pag-info">Page 1 of 1</span>
+    <button class="pag-btn" id="next-btn" onclick="nextPage()">Next →</button>
+  </div>
+</main>
+
+<footer>
+  <span>EdgeFinder — powered by your Supabase value_odds view</span>
+  <span id="footer-time"></span>
+</footer>
+
+<script>
+  const SUPABASE_URL = 'https://isjseohxkjxfypmuohyp.supabase.co/rest/v1';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlzanNlb2h4a2p4ZnlwbXVvaHlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMjQ4NTcsImV4cCI6MjA5NDcwMDg1N30.zm3eszr4XvXJuvIWbkFWLpZDswHAbCP51A46v-xWMgE';
+
+  let allData = [], filtered = [];
+  let sortKey = 'rank', sortAsc = true;
+  let page = 1;
+  const PAGE_SIZE = 25;
+
+  async function loadData() {
+    const btn = document.getElementById('refresh-btn');
+    btn.classList.add('spinning');
+    document.getElementById('tbody').innerHTML = '<tr class="state-row"><td colspan="10">Loading data…</td></tr>';
+    document.getElementById('err').style.display = 'none';
+
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/value_odds?select=*&order=rank.asc&limit=1000`,
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' } }
+      );
+      const body = await res.text();
+      if (!res.ok) {
+        showError(`HTTP ${res.status}: ${body.substring(0, 300)}`);
+        return;
+      }
+      allData = JSON.parse(body);
+      if (!Array.isArray(allData)) { showError('Unexpected response format: ' + body.substring(0, 200)); return; }
+
+      const now = new Date();
+      document.getElementById('last-update').textContent = 'Updated ' + now.toLocaleTimeString();
+      document.getElementById('footer-time').textContent = now.toLocaleString();
+
+      populateFilters();
+      applyFilters();
+    } catch (e) {
+      showError('Failed to fetch: ' + e.message + '\n\nMake sure:\n1. GRANT SELECT ON value_odds TO anon; has been run in your SQL editor\n2. RLS policies allow anon access\n3. Your Supabase project is active');
+    } finally {
+      btn.classList.remove('spinning');
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('err');
+    el.style.display = 'block';
+    el.textContent = msg;
+    document.getElementById('tbody').innerHTML = '<tr class="state-row"><td colspan="10">No data loaded</td></tr>';
+  }
+
+  function populateFilters() {
+    const uniq = (key) => [...new Set(allData.map(d => d[key]).filter(Boolean))].sort();
+    const fill  = (id, vals, label) => {
+      document.getElementById(id).innerHTML =
+        `<option value="">All ${label}</option>` +
+        vals.map(v => `<option value="${v}">${v.replace(/_/g,' ')}</option>`).join('');
+    };
+    fill('f-sport',  uniq('sport_title'),    'sports');
+    fill('f-book',   uniq('sportsbook_key'), 'sportsbooks');
+    fill('f-market', uniq('market_key'),     'markets');
+  }
+
+  function applyFilters() {
+    const sport   = document.getElementById('f-sport').value;
+    const book    = document.getElementById('f-book').value;
+    const market  = document.getElementById('f-market').value;
+    const minEdge = parseFloat(document.getElementById('f-edge').value) || 0;
+
+    filtered = allData.filter(d => {
+      const edgePct = (parseFloat(d.edge) || 0) * 100;
+      return (!sport  || d.sport_title    === sport)
+          && (!book   || d.sportsbook_key === book)
+          && (!market || d.market_key     === market)
+          && edgePct >= minEdge;
+    });
+    page = 1;
+    updateMetrics();
+    sortAndRender();
+  }
+
+  function updateMetrics() {
+    const edges = filtered.map(d => (parseFloat(d.edge) || 0) * 100);
+    const best  = edges.length ? Math.max(...edges) : 0;
+    const avg   = edges.length ? edges.reduce((a,b)=>a+b,0)/edges.length : 0;
+    document.getElementById('m-total').textContent  = filtered.length.toLocaleString();
+    document.getElementById('m-best').textContent   = best.toFixed(2) + '%';
+    document.getElementById('m-avg').textContent    = avg.toFixed(2) + '%';
+    document.getElementById('m-sports').textContent = new Set(filtered.map(d=>d.sport_title)).size;
+    document.getElementById('m-books').textContent  = new Set(filtered.map(d=>d.sportsbook_key)).size;
+    document.getElementById('count-chip').textContent = filtered.length + ' results';
+  }
+
+  function sortBy(key) {
+    if (sortKey === key) sortAsc = !sortAsc;
+    else { sortKey = key; sortAsc = (key === 'rank'); }
+    document.querySelectorAll('th').forEach(th => { th.classList.remove('sorted'); th.querySelector('.sort-arrow').textContent = ''; });
+    const th = document.getElementById('th-' + (key === 'game' ? 'game' : key.replace('_american','').replace('sport_title','sport').replace('sportsbook_key','book').replace('market_key','market').replace('outcome_name','outcome').replace('no_vig_probability','prob').replace('commence_time','time')));
+    if (th) { th.classList.add('sorted'); th.querySelector('.sort-arrow').textContent = sortAsc ? '↑' : '↓'; }
+    sortAndRender();
+  }
+
+  function sortAndRender() {
+    const dir = sortAsc ? 1 : -1;
+    filtered.sort((a, b) => {
+      const av = sortKey === 'game' ? (a.away_team||'')+(a.home_team||'') : a[sortKey];
+      const bv = sortKey === 'game' ? (b.away_team||'')+(b.home_team||'') : b[sortKey];
+      if (av == null) return 1; if (bv == null) return -1;
+      return (typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv))) * dir;
+    });
+    renderTable();
+  }
+
+  function formatTime(iso) {
+    if (!iso) return '—';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + ' ' +
+             d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+    } catch { return '—'; }
+  }
+
+  function renderTable() {
+    const start    = (page - 1) * PAGE_SIZE;
+    const pageData = filtered.slice(start, start + PAGE_SIZE);
+    const tbody    = document.getElementById('tbody');
+
+    if (!pageData.length) {
+      tbody.innerHTML = '<tr class="state-row"><td colspan="10">No bets match your filters</td></tr>';
+      updatePagination();
+      return;
+    }
+
+    tbody.innerHTML = pageData.map(d => {
+      const edge    = parseFloat(d.edge) || 0;
+      const edgePct = (edge * 100).toFixed(2);
+      const edgeCls = edge >= 0.05 ? 'edge-high' : edge >= 0.02 ? 'edge-mid' : 'edge-low';
+
+      const odds    = d.odds_american;
+      const oddsStr = odds == null ? '—' : (odds > 0 ? '+' + odds : String(odds));
+      const oddsCls = odds > 0 ? 'odds-pos' : 'odds-neg';
+
+      const rank    = d.rank ?? '—';
+      const rankCls = rank == 1 ? 'r1' : rank == 2 ? 'r2' : rank == 3 ? 'r3' : 'rn';
+
+      const game    = d.away_team && d.home_team
+                      ? `${d.away_team} @ ${d.home_team}`
+                      : (d.away_team || d.home_team || d.event_id || '—');
+
+      const sport   = (d.sport_title || '—');
+      const book    = (d.sportsbook_key || '—').replace(/_/g, ' ');
+      const market  = (d.market_key || '—').replace(/_/g, ' ');
+      const outcome = d.outcome_name || '—';
+      const point   = d.point != null ? ` (${d.point > 0 ? '+' : ''}${d.point})` : '';
+      const noVig   = d.no_vig_probability != null ? (d.no_vig_probability * 100).toFixed(1) + '%' : '—';
+      const starts  = formatTime(d.commence_time);
+
+      return `<tr>
+        <td class="col-rank"><span class="rank-badge ${rankCls}">${rank}</span></td>
+        <td class="col-game" title="${game}">${game}</td>
+        <td class="col-sport"><span class="sport-tag" title="${sport}">${sport}</span></td>
+        <td class="col-book"  title="${book}">${book}</td>
+        <td class="col-market" title="${market + point}">${market}${point}</td>
+        <td class="col-outcome" title="${outcome}">${outcome}</td>
+        <td class="col-odds"><span class="${oddsCls}">${oddsStr}</span></td>
+        <td class="col-edge"><span class="edge-chip ${edgeCls}">${edgePct}%</span></td>
+        <td class="col-prob"><span class="prob-val">${noVig}</span></td>
+        <td class="col-time"><span class="time-val">${starts}</span></td>
+      </tr>`;
+    }).join('');
+
+    updatePagination();
+  }
+
+  function updatePagination() {
+    const tot = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    document.getElementById('pag-info').textContent  = `Page ${page} of ${tot}`;
+    document.getElementById('prev-btn').disabled = page <= 1;
+    document.getElementById('next-btn').disabled = page >= tot;
+  }
+
+  function prevPage() { if (page > 1) { page--; renderTable(); } }
+  function nextPage() { const t = Math.ceil(filtered.length / PAGE_SIZE); if (page < t) { page++; renderTable(); } }
+
+  loadData();
+</script>
+</body>
+</html>
