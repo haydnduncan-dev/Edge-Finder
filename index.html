@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>EV Betting Dashboard</title>
+  <title>EdgeFinder — Expected ROI</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
@@ -388,6 +388,20 @@
       .col-time, .col-prob, .col-books, .col-strength { display: none; }
       .metrics { grid-template-columns: repeat(2, 1fr); }
     }
+    .table-container { overflow-x: auto; }
+    table { min-width: 1420px; table-layout: fixed; }
+    th, td { padding: 10px 10px; }
+    .col-game { width: 210px; } .col-outcome { width: 155px; }
+    .col-rank { width: 52px; } .col-sport { width: 65px; } .col-book { width: 115px; }
+    .col-market { width: 78px; } .col-odds { width: 80px; } .col-edge { width: 95px; }
+    .col-prob { width: 90px; } .col-time { width: 124px; } .col-books { width: 62px; }
+    .col-strength { width: 112px; } .col-source { width: 110px; } .col-age { width: 82px; }
+    .notice { color: var(--text2); font-size: 12px; line-height: 1.5; margin: 0 0 1rem; }
+    .refresh-option { color: var(--text2); font-size: 12px; display:flex; gap:5px; align-items:center; }
+    .edge-negative { color: #f09595; background: rgba(226,75,74,.08); border: 1px solid rgba(226,75,74,.25); }
+    .live-pill.inactive { color: var(--amber); border-color: var(--amber); background: transparent; }
+    .live-pill.inactive .live-dot { background: var(--amber); animation: none; }
+    @media (max-width:768px) { .col-time,.col-prob,.col-books,.col-strength {display:table-cell;} .last-update {display:none;} footer {flex-wrap:wrap; gap:10px;} }
   </style>
 </head>
 <body>
@@ -401,24 +415,24 @@
   </div>
   <div class="header-right">
     <span class="last-update" id="last-update"></span>
-    <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+    <div class="live-pill inactive" id="feed-status"><div class="live-dot"></div><span id="feed-label">LOADING</span></div>
   </div>
 </header>
 
 <main>
   <div class="metrics">
     <div class="metric">
-      <div class="metric-label">Total Bets</div>
+      <div class="metric-label">Eligible prices</div>
       <div class="metric-value" id="m-total">—</div>
-      <div class="metric-sub">across all books</div>
+      <div class="metric-sub">matching filters</div>
     </div>
     <div class="metric">
-      <div class="metric-label">Best Edge</div>
+      <div class="metric-label">Best est. ROI</div>
       <div class="metric-value accent" id="m-best">—</div>
-      <div class="metric-sub">top opportunity</div>
+      <div class="metric-sub">in filtered results</div>
     </div>
     <div class="metric">
-      <div class="metric-label">Avg Edge</div>
+      <div class="metric-label">Avg est. ROI</div>
       <div class="metric-value" id="m-avg">—</div>
       <div class="metric-sub">filtered results</div>
     </div>
@@ -428,19 +442,24 @@
       <div class="metric-sub">in results</div>
     </div>
     <div class="metric">
-      <div class="metric-label">Sportsbooks</div>
+      <div class="metric-label">Platforms</div>
       <div class="metric-value" id="m-books">—</div>
       <div class="metric-sub">represented</div>
     </div>
   </div>
 
-  <div class="error-box" id="err"></div>
+  <p class="notice">Owls Insight · NBA/NFL pregame moneylines · Sportsbooks only for now. Estimated ROI is model-based, not verified profit or an executable price. Platform-specific costs may not be included. Kalshi remains disabled pending verification.</p>
+  <div class="error-box" id="err" role="alert"></div>
 
   <div class="filter-bar">
     <select id="f-sport" onchange="applyFilters()"><option value="">All sports</option></select>
-    <select id="f-book"  onchange="applyFilters()"><option value="">All sportsbooks</option></select>
+    <select id="f-book"  onchange="applyFilters()"><option value="">All platforms</option></select>
     <select id="f-market" onchange="applyFilters()"><option value="">All markets</option></select>
-    <input type="number" id="f-edge" placeholder="Min edge %" step="0.1" min="0" oninput="applyFilters()" />
+    <input type="number" id="f-roi" placeholder="Min ROI %" step="0.1" value="0" oninput="applyFilters()" />
+    <select id="f-source" onchange="applyFilters()"><option value="">All sources</option></select>
+    <input type="number" id="f-age" placeholder="Max age (sec)" min="0" step="1" oninput="applyFilters()" />
+    <input type="number" id="f-books" placeholder="Min ref. books" min="2" step="1" oninput="applyFilters()" />
+    <label class="refresh-option"><input type="checkbox" id="auto-refresh" /> Auto (30s)</label>
     <span class="count-chip" id="count-chip"></span>
     <button class="refresh-btn" id="refresh-btn" onclick="loadData()">
       <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
@@ -452,22 +471,26 @@
     <table>
       <thead>
         <tr>
-          <th class="col-rank"    onclick="sortBy('rank')"              id="th-rank">    Rank    <span class="sort-arrow">↑</span></th>
-          <th class="col-game"    onclick="sortBy('game')"              id="th-game">    Game    <span class="sort-arrow"></span></th>
-          <th class="col-sport"   onclick="sortBy('sport_title')"       id="th-sport">   Sport   <span class="sort-arrow"></span></th>
-          <th class="col-book"    onclick="sortBy('sportsbook_key')"    id="th-book">    Book    <span class="sort-arrow"></span></th>
-          <th class="col-market"  onclick="sortBy('market_key')"        id="th-market">  Market  <span class="sort-arrow"></span></th>
-          <th class="col-outcome" onclick="sortBy('outcome_name')"      id="th-outcome"> Outcome <span class="sort-arrow"></span></th>
-          <th class="col-odds"    onclick="sortBy('odds_american')"     id="th-odds">    Odds    <span class="sort-arrow"></span></th>
-          <th class="col-edge"    onclick="sortBy('edge')"              id="th-edge">    Edge    <span class="sort-arrow"></span></th>
-          <th class="col-prob"    onclick="sortBy('no_vig_probability')" id="th-prob">   No-vig  <span class="sort-arrow"></span></th>
-          <th class="col-time"    onclick="sortBy('commence_time')"     id="th-time">    Starts  <span class="sort-arrow"></span></th>
-          <th class="col-books"   onclick="sortBy('consensus_book_count')" id="th-books"> Books <span class="sort-arrow"></span></th>
-          <th class="col-strength" onclick="sortBy('consensus_strength')" id="th-strength"> Consensus <span class="sort-arrow"></span></th>
+          <th class="col-rank" onclick="sortBy('rank')" data-sort="rank">Rank <span class="sort-arrow"></span></th>
+          <th class="col-game" onclick="sortBy('game')" data-sort="game">Game <span class="sort-arrow"></span></th>
+          <th class="col-sport" onclick="sortBy('sport_title')" data-sort="sport_title">Sport <span class="sort-arrow"></span></th>
+          <th class="col-source" onclick="sortBy('source_type')" data-sort="source_type">Source <span class="sort-arrow"></span></th>
+          <th class="col-book" onclick="sortBy('platform')" data-sort="platform">Platform <span class="sort-arrow"></span></th>
+          <th class="col-market" onclick="sortBy('market_key')" data-sort="market_key">Market <span class="sort-arrow"></span></th>
+          <th class="col-outcome" onclick="sortBy('pick')" data-sort="pick">Pick <span class="sort-arrow"></span></th>
+          <th class="col-odds" onclick="sortBy('decimal_odds')" data-sort="decimal_odds">Price <span class="sort-arrow"></span></th>
+          <th class="col-edge" onclick="sortBy('expected_roi')" data-sort="expected_roi">Est. ROI <span class="sort-arrow"></span></th>
+          <th class="col-prob" onclick="sortBy('probability_edge')" data-sort="probability_edge">Edge (pp) <span class="sort-arrow"></span></th>
+          <th class="col-prob" onclick="sortBy('fair_probability')" data-sort="fair_probability">Fair <span class="sort-arrow"></span></th>
+          <th class="col-prob" onclick="sortBy('break_even_probability')" data-sort="break_even_probability">Break-even <span class="sort-arrow"></span></th>
+          <th class="col-time" onclick="sortBy('commence_time')" data-sort="commence_time">Starts <span class="sort-arrow"></span></th>
+          <th class="col-age" onclick="sortBy('age_seconds')" data-sort="age_seconds">Age <span class="sort-arrow"></span></th>
+          <th class="col-books" onclick="sortBy('consensus_book_count')" data-sort="consensus_book_count">Ref. books <span class="sort-arrow"></span></th>
+          <th class="col-strength" onclick="sortBy('consensus_strength')" data-sort="consensus_strength">Consensus <span class="sort-arrow"></span></th>
         </tr>
       </thead>
       <tbody id="tbody">
-        <tr class="state-row"><td colspan="12">Loading data…</td></tr>
+        <tr class="state-row"><td colspan="16">Loading data…</td></tr>
       </tbody>
     </table>
   </div>
@@ -480,7 +503,7 @@
 </main>
 
 <footer>
-  <span>EdgeFinder — powered by your Supabase value_odds view</span>
+  <span>EdgeFinder — Owls Insight / estimated ROI</span>
   <span id="footer-time"></span>
 </footer>
 
@@ -488,192 +511,121 @@
   const SUPABASE_URL = 'https://isjseohxkjxfypmuohyp.supabase.co/rest/v1';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlzanNlb2h4a2p4ZnlwbXVvaHlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMjQ4NTcsImV4cCI6MjA5NDcwMDg1N30.zm3eszr4XvXJuvIWbkFWLpZDswHAbCP51A46v-xWMgE';
 
-  let allData = [], filtered = [];
-  let sortKey = 'rank', sortAsc = true;
-  let page = 1;
+
+  const API_URL = `${SUPABASE_URL}/rpc/edgefinder_dashboard_v1`;
   const PAGE_SIZE = 25;
-
+  const MAX_AGE = 900;
+  let allData = [], filtered = [], sortKey = 'expected_roi', sortAsc = false, page = 1;
+  let loading = false, loadedAt = 0, generatedAt = 0, validFeed = false;
+  const el = id => document.getElementById(id);
+  const escapeHtml = value => String(value ?? '—').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const num = v => v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
+  const pct = (n, signed=false, suffix='%') => n == null ? '—' : `${signed && n>0?'+':''}${(n*100).toFixed(2)}${suffix}`;
+  const timeMs = x => typeof x === 'string' ? Date.parse(x) : NaN;
+  const nowServer = () => generatedAt + Math.max(0, Date.now()-loadedAt);
+  function setStatus(label, healthy=false) {
+    el('feed-label').textContent=label;
+    el('feed-status').classList.toggle('inactive',!healthy);
+  }
+  function normalize(row) {
+    const r={...row};
+    for (const k of ['expected_roi','probability_edge','fair_probability','break_even_probability','decimal_odds','consensus_book_count','point','quote_age_seconds']) r[k]=num(r[k]);
+    if (r.source_type!=='sportsbook' || !r.event_id || !r.pick || !r.platform || r.expected_roi===null || r.probability_edge===null || r.fair_probability===null || r.break_even_probability===null || r.consensus_book_count===null || r.consensus_book_count<2 || r.fair_probability<0 || r.fair_probability>1 || r.break_even_probability<=0 || r.break_even_probability>=1 || r.decimal_odds===null || r.decimal_odds<=1 || Math.abs(r.expected_roi-(r.fair_probability/r.break_even_probability-1))>0.00001 || Math.abs(r.probability_edge-(r.fair_probability-r.break_even_probability))>0.00001) throw new Error('Unexpected row or ROI data from API.');
+    if (![r.last_update,r.reference_oldest_quote,r.pulled_at,r.commence_time].every(x=>Number.isFinite(timeMs(x)))) throw new Error('Missing quote timestamps.');
+    r.game=`${r.away_team ?? '—'} @ ${r.home_team ?? '—'}`;
+    return r;
+  }
   async function loadData() {
-    const btn = document.getElementById('refresh-btn');
-    btn.classList.add('spinning');
-    document.getElementById('tbody').innerHTML = '<tr class="state-row"><td colspan="12">Loading data…</td></tr>';
-    document.getElementById('err').style.display = 'none';
-
+    if(loading) return;
+    loading=true; const btn=el('refresh-btn'); btn.disabled=true; btn.classList.add('spinning');
+    el('err').style.display='none'; setStatus('REFRESHING');
+    const controller=new AbortController(); const timeout=setTimeout(()=>controller.abort(),15000);
     try {
-      const res = await fetch(
-        `${SUPABASE_URL}/value_odds?select=*&order=rank.asc&limit=1000`,
-        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' } }
-      );
-      const body = await res.text();
-      if (!res.ok) {
-        showError(`HTTP ${res.status}: ${body.substring(0, 300)}`);
-        return;
-      }
-      allData = JSON.parse(body);
-      if (!Array.isArray(allData)) { showError('Unexpected response format: ' + body.substring(0, 200)); return; }
-
-      const now = new Date();
-      document.getElementById('last-update').textContent = 'Updated ' + now.toLocaleTimeString();
-      document.getElementById('footer-time').textContent = now.toLocaleString();
-
-      populateFilters();
-      applyFilters();
-    } catch (e) {
-      showError('Failed to fetch: ' + e.message + '\n\nMake sure:\n1. GRANT SELECT ON value_odds TO anon; has been run in your SQL editor\n2. RLS policies allow anon access\n3. Your Supabase project is active');
-    } finally {
-      btn.classList.remove('spinning');
+      const res=await fetch(API_URL,{method:'GET',cache:'no-store',signal:controller.signal,headers:{apikey:SUPABASE_KEY,Authorization:`Bearer ${SUPABASE_KEY}`,Accept:'application/json'}});
+      if(!res.ok) throw new Error(`HTTP ${res.status}. Check production API migration and access grant.`);
+      const body=await res.json();
+      if(!body || body.api_version!==1 || body.source_scope!=='sportsbook_only' || body.complete!==true || !Array.isArray(body.rows) || body.rows.length!==body.row_count || !Number.isFinite(timeMs(body.generated_at))) throw new Error('Incomplete or unexpected API response. No partial board displayed.');
+      const received=Date.now();
+      if(Math.abs(received-timeMs(body.generated_at))>120000) throw new Error('API response is stale or device clock is incorrect.');
+      const rows=body.rows.map(normalize);
+      generatedAt=timeMs(body.generated_at); loadedAt=received; allData=rows; validFeed=true;
+      el('last-update').textContent='Fetched '+new Date(loadedAt).toLocaleTimeString();
+      el('footer-time').textContent='Board generated '+formatTime(body.generated_at);
+      populateFilters(); applyFilters(); setStatus(rows.length?'FETCHED':'NO DATA',rows.length>0);
+    } catch(e) {
+      allData=[]; filtered=[]; validFeed=false; setStatus('UNAVAILABLE');
+      el('err').textContent='Dashboard unavailable: '+e.message; el('err').style.display='block';
+      updateMetrics(); renderTable('No data loaded. Refresh to retry.');
+    } finally { clearTimeout(timeout); loading=false; btn.disabled=false; btn.classList.remove('spinning'); }
+  }
+  function populateFilters() {
+    for (const [id,key,label] of [['f-sport','sport_title','sports'],['f-book','platform','platforms'],['f-market','market_key','markets'],['f-source','source_type','sources']]) {
+      const select=el(id), previous=select.value;
+      const values=[...new Set(allData.map(d=>d[key]).filter(Boolean))].sort();
+      select.replaceChildren(new Option('All '+label,''),...values.map(v=>new Option(pretty(v),v)));
+      if(values.includes(previous)) select.value=previous;
     }
   }
-
-  function showError(msg) {
-    const el = document.getElementById('err');
-    el.style.display = 'block';
-    el.textContent = msg;
-    document.getElementById('tbody').innerHTML = '<tr class="state-row"><td colspan="12">No data loaded</td></tr>';
+  function pretty(v) { return v==='h2h'?'Moneyline':String(v??'—').replace(/_/g,' '); }
+  function age(r,key='last_update') { return Math.max(0,(nowServer()-timeMs(r[key]))/1000); }
+  function eligible(r) {
+    return timeMs(r.commence_time)>nowServer() && ['last_update','reference_oldest_quote','pulled_at'].every(k=>age(r,k)<=MAX_AGE);
   }
-
-  function populateFilters() {
-    const uniq = (key) => [...new Set(allData.map(d => d[key]).filter(Boolean))].sort();
-    const fill  = (id, vals, label) => {
-      document.getElementById(id).innerHTML =
-        `<option value="">All ${label}</option>` +
-        vals.map(v => `<option value="${v}">${v.replace(/_/g,' ')}</option>`).join('');
-    };
-    fill('f-sport',  uniq('sport_title'),    'sports');
-    fill('f-book',   uniq('sportsbook_key'), 'sportsbooks');
-    fill('f-market', uniq('market_key'),     'markets');
+  function applyFilters(reset=true) {
+    if(!validFeed) return;
+    const sport=el('f-sport').value, book=el('f-book').value, market=el('f-market').value, source=el('f-source').value;
+    const minRoi=num(el('f-roi').value), maxAge=num(el('f-age').value), minBooks=num(el('f-books').value);
+    filtered=allData.filter(d=>eligible(d)&&(!sport||d.sport_title===sport)&&(!book||d.platform===book)&&(!market||d.market_key===market)&&(!source||d.source_type===source)&&(minRoi===null||d.expected_roi*100>=minRoi)&&(maxAge===null||age(d)<=maxAge)&&(minBooks===null||d.consensus_book_count>=minBooks));
+    // Rank is global within current filters, by ROI, independent of display sort.
+    filtered.sort((a,b)=>b.expected_roi-a.expected_roi||a.event_id.localeCompare(b.event_id)||a.platform.localeCompare(b.platform)||a.pick.localeCompare(b.pick));
+    filtered=filtered.map((r,i)=>({...r,rank:i+1,age_seconds:age(r)}));
+    if(reset) page=1;
+    page=Math.min(page,Math.max(1,Math.ceil(filtered.length/PAGE_SIZE)));
+    updateMetrics(); sortAndRender();
   }
-
-  function applyFilters() {
-    const sport   = document.getElementById('f-sport').value;
-    const book    = document.getElementById('f-book').value;
-    const market  = document.getElementById('f-market').value;
-    const minEdge = parseFloat(document.getElementById('f-edge').value) || 0;
-
-    filtered = allData.filter(d => {
-      const edgePct = (parseFloat(d.edge) || 0) * 100;
-      return (!sport  || d.sport_title    === sport)
-          && (!book   || d.sportsbook_key === book)
-          && (!market || d.market_key     === market)
-          && edgePct >= minEdge;
-    });
-    page = 1;
-    updateMetrics();
-    sortAndRender();
-  }
-
   function updateMetrics() {
-    const edges = filtered.map(d => (parseFloat(d.edge) || 0) * 100);
-    const best  = edges.length ? Math.max(...edges) : 0;
-    const avg   = edges.length ? edges.reduce((a,b)=>a+b,0)/edges.length : 0;
-    document.getElementById('m-total').textContent  = filtered.length.toLocaleString();
-    document.getElementById('m-best').textContent   = best.toFixed(2) + '%';
-    document.getElementById('m-avg').textContent    = avg.toFixed(2) + '%';
-    document.getElementById('m-sports').textContent = new Set(filtered.map(d=>d.sport_title)).size;
-    document.getElementById('m-books').textContent  = new Set(filtered.map(d=>d.sportsbook_key)).size;
-    document.getElementById('count-chip').textContent = filtered.length + ' results';
+    const vals=filtered.map(r=>r.expected_roi);
+    el('m-total').textContent=filtered.length.toLocaleString();
+    el('m-best').textContent=vals.length?pct(Math.max(...vals),true):'—';
+    el('m-avg').textContent=vals.length?pct(vals.reduce((a,b)=>a+b,0)/vals.length,true):'—';
+    el('m-sports').textContent=new Set(filtered.map(d=>d.sport_title)).size;
+    el('m-books').textContent=new Set(filtered.map(d=>d.platform)).size;
+    el('count-chip').textContent=`${filtered.length} results`;
   }
-
   function sortBy(key) {
-    if (sortKey === key) sortAsc = !sortAsc;
-    else { sortKey = key; sortAsc = (key === 'rank'); }
-    document.querySelectorAll('th').forEach(th => { th.classList.remove('sorted'); th.querySelector('.sort-arrow').textContent = ''; });
-    const th = document.getElementById('th-' + (key === 'game' ? 'game' : key.replace('_american','').replace('sport_title','sport').replace('sportsbook_key','book').replace('market_key','market').replace('outcome_name','outcome').replace('no_vig_probability','prob').replace('commence_time','time').replace('consensus_book_count','books').replace('consensus_strength','strength')));
-    if (th) { th.classList.add('sorted'); th.querySelector('.sort-arrow').textContent = sortAsc ? '↑' : '↓'; }
-    sortAndRender();
+    if(sortKey===key) sortAsc=!sortAsc;
+    else {sortKey=key; sortAsc=['rank','game','sport_title','source_type','platform','market_key','pick','commence_time','age_seconds'].includes(key);}
+    page=1; sortAndRender();
   }
-
   function sortAndRender() {
-    const dir = sortAsc ? 1 : -1;
-    filtered.sort((a, b) => {
-      const av = sortKey === 'game' ? (a.away_team||'')+(a.home_team||'') : a[sortKey];
-      const bv = sortKey === 'game' ? (b.away_team||'')+(b.home_team||'') : b[sortKey];
-      if (av == null) return 1; if (bv == null) return -1;
-      return (typeof av === 'number' ? av - bv : String(av).localeCompare(String(bv))) * dir;
-    });
+    for(const th of document.querySelectorAll('th[data-sort]')) {const active=th.dataset.sort===sortKey; th.classList.toggle('sorted',active);th.querySelector('.sort-arrow').textContent=active?(sortAsc?'↑':'↓'):'';th.setAttribute('aria-sort',active?(sortAsc?'ascending':'descending'):'none');}
+    filtered.sort((a,b)=>{let x=a[sortKey],y=b[sortKey];if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;let cmp=typeof x==='number'&&typeof y==='number'?x-y:String(x).localeCompare(String(y));return cmp*(sortAsc?1:-1)||a.rank-b.rank;});
     renderTable();
   }
-
-  function formatTime(iso) {
-    if (!iso) return '—';
-    try {
-      const d = new Date(iso);
-      return d.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + ' ' +
-             d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
-    } catch { return '—'; }
+  function formatTime(iso) { const d=new Date(iso);return Number.isFinite(d.getTime())?d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):'—'; }
+  function formatAge(seconds) { return seconds<60?`${Math.floor(seconds)}s`:`${Math.floor(seconds/60)}m ${Math.floor(seconds%60)}s`; }
+  function renderTable(message='No eligible prices match your filters') {
+    const rows=filtered.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
+    if(!rows.length){el('tbody').innerHTML=`<tr class="state-row"><td colspan="16">${escapeHtml(message)}</td></tr>`;updatePagination();return;}
+    const cell=(cls,val,title=val)=>`<td class="${cls}" title="${escapeHtml(title)}">${escapeHtml(val)}</td>`;
+    el('tbody').innerHTML=rows.map(r=>{
+      const roiClass=r.expected_roi<0?'edge-negative':r.expected_roi>=.05?'edge-high':r.expected_roi>=.02?'edge-mid':'edge-low';
+      const rankClass=r.rank===1?'r1':r.rank===2?'r2':r.rank===3?'r3':'rn';
+      const strength=String(r.consensus_strength??'').replace(/_consensus$/,'').replace(/_/g,'-');
+      const strengthClass=['very-strong','strong','moderate','weak','very-weak'].includes(strength)?'strength-'+strength:'strength-default';
+      return `<tr><td class="col-rank"><span class="rank-badge ${rankClass}">${r.rank}</span></td>`+
+        cell('col-game',r.game)+cell('col-sport',r.sport_title)+cell('col-source',pretty(r.source_type))+cell('col-book',pretty(r.platform))+cell('col-market',pretty(r.market_key))+cell('col-outcome',r.pick)+cell('col-odds',r.display_price)+
+        `<td class="col-edge"><span class="edge-chip ${roiClass}">${pct(r.expected_roi,true)}</span></td>`+cell('col-prob',pct(r.probability_edge,true,' pp'))+cell('col-prob',pct(r.fair_probability))+cell('col-prob',pct(r.break_even_probability))+cell('col-time',formatTime(r.commence_time))+cell('col-age',formatAge(r.age_seconds),`Target: ${formatAge(r.age_seconds)}; oldest reference: ${formatAge(age(r,'reference_oldest_quote'))}; ${r.freshness_basis}`)+cell('col-books',r.consensus_book_count)+`<td class="col-strength"><span class="strength-badge ${strengthClass}">${escapeHtml(pretty(strength))}</span></td></tr>`;
+    }).join('');updatePagination();
   }
-
-  function renderTable() {
-    const start    = (page - 1) * PAGE_SIZE;
-    const pageData = filtered.slice(start, start + PAGE_SIZE);
-    const tbody    = document.getElementById('tbody');
-
-    if (!pageData.length) {
-      tbody.innerHTML = '<tr class="state-row"><td colspan="12">No bets match your filters</td></tr>';
-      updatePagination();
-      return;
-    }
-
-    tbody.innerHTML = pageData.map(d => {
-      const edge    = parseFloat(d.edge) || 0;
-      const edgePct = (edge * 100).toFixed(2);
-      const edgeCls = edge >= 0.05 ? 'edge-high' : edge >= 0.02 ? 'edge-mid' : 'edge-low';
-
-      const odds    = d.odds_american;
-      const oddsStr = odds == null ? '—' : (odds > 0 ? '+' + odds : String(odds));
-      const oddsCls = odds > 0 ? 'odds-pos' : 'odds-neg';
-
-      const rank    = d.rank ?? '—';
-      const rankCls = rank == 1 ? 'r1' : rank == 2 ? 'r2' : rank == 3 ? 'r3' : 'rn';
-
-      const game    = d.away_team && d.home_team
-                      ? `${d.away_team} @ ${d.home_team}`
-                      : (d.away_team || d.home_team || d.event_id || '—');
-
-      const sport   = (d.sport_title || '—');
-      const book    = (d.sportsbook_key || '—').replace(/_/g, ' ');
-      const market  = (d.market_key || '—').replace(/_/g, ' ');
-      const outcome = d.outcome_name || '—';
-      const point   = d.point != null ? ` (${d.point > 0 ? '+' : ''}${d.point})` : '';
-      const noVig   = d.no_vig_probability != null ? (d.no_vig_probability * 100).toFixed(1) + '%' : '—';
-      const starts  = formatTime(d.commence_time);
-
-      const bookCount = d.consensus_book_count ?? '—';
-      const strength  = d.consensus_strength || '';
-      const strengthKey = strength.toLowerCase().replace(/\s+/g, '-');
-      const strengthCls = ['very-strong','strong','moderate','weak','very-weak'].includes(strengthKey)
-                          ? 'strength-' + strengthKey : 'strength-default';
-
-      return `<tr>
-        <td class="col-rank"><span class="rank-badge ${rankCls}">${rank}</span></td>
-        <td class="col-game" title="${game}">${game}</td>
-        <td class="col-sport"><span class="sport-tag" title="${sport}">${sport}</span></td>
-        <td class="col-book"  title="${book}">${book}</td>
-        <td class="col-market" title="${market + point}">${market}${point}</td>
-        <td class="col-outcome" title="${outcome}">${outcome}</td>
-        <td class="col-odds"><span class="${oddsCls}">${oddsStr}</span></td>
-        <td class="col-edge"><span class="edge-chip ${edgeCls}">${edgePct}%</span></td>
-        <td class="col-prob"><span class="prob-val">${noVig}</span></td>
-        <td class="col-time"><span class="time-val">${starts}</span></td>
-        <td class="col-books"><span class="book-count">${bookCount}</span></td>
-        <td class="col-strength">${strength ? `<span class="strength-badge ${strengthCls}">${strength}</span>` : '—'}</td>
-      </tr>`;
-    }).join('');
-
-    updatePagination();
-  }
-
-  function updatePagination() {
-    const tot = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-    document.getElementById('pag-info').textContent  = `Page ${page} of ${tot}`;
-    document.getElementById('prev-btn').disabled = page <= 1;
-    document.getElementById('next-btn').disabled = page >= tot;
-  }
-
-  function prevPage() { if (page > 1) { page--; renderTable(); } }
-  function nextPage() { const t = Math.ceil(filtered.length / PAGE_SIZE); if (page < t) { page++; renderTable(); } }
-
+  function updatePagination(){const total=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));el('pag-info').textContent=`Page ${page} of ${total}`;el('prev-btn').disabled=page<=1;el('next-btn').disabled=page>=total;}
+  function prevPage(){if(page>1){page--;renderTable();}}
+  function nextPage(){if(page<Math.ceil(filtered.length/PAGE_SIZE)){page++;renderTable();}}
+  // Age and expiry update locally; network refresh only when explicitly enabled and visible.
+  setInterval(()=>{if(validFeed&&!loading&&!document.hidden){applyFilters(false);if(Date.now()-loadedAt>60000)setStatus('NOT RECENTLY FETCHED');}},5000);
+  setInterval(()=>{if(el('auto-refresh').checked&&!document.hidden)loadData();},30000);
   loadData();
+
 </script>
 </body>
 </html>
